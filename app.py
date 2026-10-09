@@ -23,12 +23,20 @@ DEFAULT_SYSTEM = (
     "Kısa ve net açıklama ekle. Kullanıcı Türkçe yazıyorsa Türkçe yanıt ver."
 )
 
-st.set_page_config(page_title="Kod Asistanı (NVIDIA)", page_icon="💻", layout="wide")
+
+def get_secret(name):
+    """Secrets tanımlı değilse hata vermeden boş döner."""
+    try:
+        return st.secrets.get(name, "")
+    except Exception:
+        return ""
+
+st.set_page_config(page_title="Zii's Ai", page_icon="💻", layout="wide")
 
 # ---------- İsteğe bağlı şifre koruması ----------
 # Streamlit Cloud > Settings > Secrets içine APP_PASSWORD = "sifreniz" yazarsanız
 # uygulama şifre sormadan açılmaz.
-app_password = st.secrets.get("APP_PASSWORD", "") if hasattr(st, "secrets") else ""
+app_password = get_secret("APP_PASSWORD")
 if app_password:
     if not st.session_state.get("auth_ok"):
         st.title("🔒 Giriş")
@@ -50,14 +58,17 @@ with st.sidebar:
     st.header("⚙️ Ayarlar")
 
     # Anahtar yalnızca bu oturumda bellekte tutulur, hiçbir yere kaydedilmez.
-    secret_key = st.secrets.get("NVIDIA_API_KEY", "") if hasattr(st, "secrets") else ""
-    api_key = st.text_input(
-        "NVIDIA API Anahtarı",
-        type="password",
-        value=secret_key,
-        placeholder="nvapi-...",
-        help="build.nvidia.com/settings/api-keys adresinden alabilirsiniz.",
-    )
+    secret_key = get_secret("NVIDIA_API_KEY")
+    if secret_key:
+        api_key = secret_key
+        st.success("🔑 API anahtarı Secrets'tan yüklendi.")
+    else:
+        api_key = st.text_input(
+            "NVIDIA API Anahtarı",
+            type="password",
+            placeholder="nvapi-...",
+            help="build.nvidia.com/settings/api-keys adresinden alabilirsiniz.",
+        )
 
     if st.button("🔄 Modelleri listele", disabled=not api_key):
         try:
@@ -88,7 +99,7 @@ with st.sidebar:
         st.rerun()
 
 # ---------- Ana ekran ----------
-st.title("💻 Kod Asistanı")
+st.title("💻 Zii's Ai")
 st.caption(f"Model: `{model}`")
 
 for m in st.session_state.messages:

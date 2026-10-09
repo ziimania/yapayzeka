@@ -5,11 +5,17 @@ BASE_URL = "https://integrate.api.nvidia.com/v1"
 
 # Başlangıç model listesi. "Modelleri listele" butonu güncel listeyi NVIDIA'dan çeker.
 DEFAULT_MODELS = [
-    "deepseek-ai/deepseek-v3.1",
-    "nvidia/nemotron-3-super-120b-a12b",
     "qwen/qwen3-coder-480b-a35b-instruct",
-    "meta/llama-3.3-70b-instruct",
+    "deepseek-ai/deepseek-v4-flash",
+    "deepseek-ai/deepseek-v4-pro",
+    "nvidia/nemotron-3-super-120b-a12b",
 ]
+
+# Sohbet/kod için uygun olmayan modelleri listeden ayıklamak için
+EXCLUDE = ("embed", "rerank", "retriev", "guard", "safety", "reward", "parse", "ocr",
+           "clip", "vila", "cosmos", "riva", "tts", "asr", "stable-diffusion", "flux",
+           "sdxl", "paligemma", "neva", "fuyu", "kosmos", "deplot", "nvclip", "bge",
+           "arctic-embed", "nv-embed", "synthetic", "topic-control", "content-safety")
 
 DEFAULT_SYSTEM = (
     "Sen deneyimli bir yazılım geliştiricisin. Kullanıcının isteğine göre temiz, çalışan ve "
@@ -56,10 +62,15 @@ with st.sidebar:
     if st.button("🔄 Modelleri listele", disabled=not api_key):
         try:
             client = OpenAI(base_url=BASE_URL, api_key=api_key)
-            ids = sorted(m.id for m in client.models.list().data)
+            all_ids = sorted(m.id for m in client.models.list().data)
+            ids = [i for i in all_ids if not any(x in i.lower() for x in EXCLUDE)]
+            ids = [m for m in DEFAULT_MODELS if m in ids] + [i for i in ids if i not in DEFAULT_MODELS]
             if ids:
                 st.session_state.models = ids
-                st.success(f"{len(ids)} model bulundu.")
+                st.success(f"{len(ids)} sohbet modeli bulundu (toplam {len(all_ids)} kayıt).")
+            missing = [m for m in DEFAULT_MODELS if m not in all_ids]
+            if missing:
+                st.warning("Önerilen şu modeller listede yok: " + ", ".join(missing))
         except Exception as e:
             st.error(f"Liste alınamadı: {e}")
 
@@ -123,9 +134,14 @@ if prompt:
             elif "401" in msg or "403" in msg:
                 st.error("API anahtarı geçersiz veya yetkisiz. Anahtarı kontrol edin.")
             elif "404" in msg:
-                st.error("Model bulunamadı. 'Modelleri listele' ile güncel adı seçin.")
+                st.error(f"404: `{model}` bu hesapta sohbet için kullanılamıyor (eskimiş, kapalı ya da sohbet modeli değil). "
+                         "Listeden başka bir model deneyin.")
             else:
-                st.error(f"Hata: {msg}")
+                st.error("Hata oluştu.")
+            st.code(msg)  # NVIDIA'nın döndürdüğü asıl hata metni
+            # Başarısız isteği geçmişten çıkar (üst üste 'selam' birikmesin)
+            if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
+                st.session_state.messages.pop()
 
         if full:
             st.session_state.messages.append({"role": "assistant", "content": full})
